@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: deblur3d
+Version: 0.1.0
+Summary: Laminography blur synthesis + datasets
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy<2
+Requires-Dist: tifffile>=2023.2.3
+Requires-Dist: torch<2.0,>=1.12
+Requires-Dist: torchvision<0.14,>=0.13
+Requires-Dist: tqdm
+Requires-Dist: matplotlib
+Requires-Dist: napari[all]

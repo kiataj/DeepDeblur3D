@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deblur3d"
+version = "0.1.0"
+description = "Laminography blur synthesis + datasets"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy<2",            # Torch 1.12 compatibility
+  "tifffile>=2023.2.3",
+  "torch>=1.12,<2.0",
+  "torchvision>=0.13,<0.14",
+  "tqdm",
+  "matplotlib",
+  "napari[all]"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
