@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/taki/DeepDeBlur3D/mlruns/208247410941120697/7a2256f38d8349ff90e7e1a026288376/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '208247410941120697'
+lifecycle_stage: active
+run_id: 7a2256f38d8349ff90e7e1a026288376
+run_name: unet3d_residual_base24L4
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760520781359
+status: 1
+tags: []
+user_id: taki
