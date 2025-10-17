@@ -32,7 +32,7 @@ contourpy==1.3.2
 cycler==0.12.1
 dask==2025.9.1
 databricks-sdk==0.57.0
--e git+ssh://git@github.com/kiataj/DeepDeBlur3D.git@c67ceacf6fb8580439d806da8ef22e57c57d17ca#egg=deblur3d
+-e git+ssh://git@github.com/kiataj/DeepDeBlur3D.git@7d3a4533ffbb51a9120562d486596a5b657cfed7#egg=deblur3d
 debugpy==1.8.17
 decorator==5.2.1
 docker==7.1.0

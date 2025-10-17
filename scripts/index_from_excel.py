@@ -148,13 +148,17 @@ def natural_key(s: str):
 def list_tifs(folder: Path) -> List[Path]:
     # case-insensitive *.tif / *.tiff
     exts = (".tif", ".tiff")
-    files = [p for p in folder.iterdir()
-             if p.is_file()
-             and p.suffix.lower() in exts
-             and not p.name.lower().startswith("proj_")
-             and not p.name.lower().startswith("mask_")]
+    files = [
+        p for p in folder.iterdir()
+        if p.is_file()
+        and p.suffix.lower() in exts
+        and p.name.lower().startswith("slice")  
+        and not p.name.lower().startswith("proj_")
+        and not p.name.lower().startswith("mask_")
+    ]
     files.sort(key=lambda p: natural_key(p.name))
     return files
+
 
 def peek_slices_and_stats(files: List[Path], sample_n: int = 16) -> Tuple[int, int, str, float, float]:
     """Return (H, W, dtype_str, lo, hi) using up to 'sample_n' evenly-spaced slices."""
@@ -214,18 +218,41 @@ def try_read_xy_resolution(path: Path) -> Tuple[Optional[float], Optional[float]
         pass
     return None, None
 
-def scan_project(project_path: Path, min_slices: int, sample_slices: int) -> Tuple[List[Dict], List[Dict]]:
-    """Return (rows, logs) for this project."""
+def scan_project(project_path: Path,
+                 min_slices: int,
+                 sample_slices: int,
+                 max_scans_per_root: int,
+                 unlimited: bool) -> Tuple[List[Dict], List[Dict]]:
+    """Return (rows, logs) for this project, respecting per-root cap unless unlimited=True."""
     rows, logs = [], []
     if not project_path.exists():
         logs.append({"level": "error", "project": str(project_path), "msg": "path does not exist"})
         return rows, logs
 
+    accepted = 0  # how many scans we've taken from this root
+
     for dirpath, dirnames, filenames in os.walk(project_path):
         base = os.path.basename(dirpath)
-        if base.lower().startswith("proj_"):
-            # skip projections folders entirely
-            dirnames[:] = []  # do not descend into this tree
+        base_l = base.lower()
+
+        # If we've hit the cap and this root isn't unlimited, prune this subtree
+        if not unlimited and accepted >= max_scans_per_root:
+            dirnames[:] = []     # don't descend further
+            continue
+
+        # --- prune child dirs we should never descend into ---
+        to_skip = []
+        for d in list(dirnames):
+            dl = d.lower()
+            if (dl in ("proj", "projref", "video") or
+                dl.startswith("mask_") or dl.startswith("proj_")):
+                to_skip.append(d)
+        if to_skip:
+            dirnames[:] = [d for d in dirnames if d not in to_skip]
+
+        # --- skip this folder entirely if it itself matches the patterns ---
+        if (base_l in ("proj", "projref", "video") or
+            base_l.startswith("mask_") or base_l.startswith("proj_")):
             continue
 
         folder = Path(dirpath)
@@ -236,18 +263,12 @@ def scan_project(project_path: Path, min_slices: int, sample_slices: int) -> Tup
         try:
             # --- basic slice stats ---
             H, W, dtype, lo, hi = peek_slices_and_stats(tifs, sample_n=sample_slices)
-            # try XY spacing from the first slice
             sy, sx = try_read_xy_resolution(tifs[0])
 
             # --- sizes ---
-            # 8-bit equivalent: 1 byte/voxel
             bytes_8bit = int(len(tifs)) * int(H) * int(W)
-
-            # Uncompressed estimate from dtype (bytes per pixel)
-            bpp = bpp_from_dtype_str(dtype)  # helper: maps dtype string to 1/2/4/8
+            bpp = bpp_from_dtype_str(dtype)
             bytes_est = int(len(tifs)) * int(H) * int(W) * int(bpp)
-
-            # Exact on-disk size (may be slower but reliable with TIFF compression)
             try:
                 bytes_exact = sum(f.stat().st_size for f in tifs)
             except Exception as e:
@@ -259,16 +280,14 @@ def scan_project(project_path: Path, min_slices: int, sample_slices: int) -> Tup
             try:
                 xml_path = folder.parent / "unireconstruction.xml"
                 if not xml_path.exists():
-                    # try case-insensitive fallback
                     cand = next((p for p in folder.parent.glob("*.xml")
                                  if p.name.lower() == "unireconstruction.xml"), None)
                     xml_path = cand if cand else xml_path
                 if xml_path and xml_path.exists():
-                    xml_meta = parse_unireconstruction(xml_path)  # returns dict with xml_* keys
+                    xml_meta = parse_unireconstruction(xml_path)
             except Exception as e:
                 logs.append({"level": "warn", "scan_dir": str(folder), "msg": f"xml parse failed: {e}"})
 
-            # --- row ---
             row = {
                 "volume_id": f"{folder.as_posix()}",
                 "project_path": str(project_path),
@@ -277,26 +296,24 @@ def scan_project(project_path: Path, min_slices: int, sample_slices: int) -> Tup
                 "H": int(H), "W": int(W), "dtype": dtype,
                 "lo": lo, "hi": hi,
                 "spacing_y": sy, "spacing_x": sx,
-
-                # sizes: 8-bit equivalent (always meaningful)
                 "bytes_8bit": int(bytes_8bit),
                 "size_8bit_GB": float(bytes_8bit / 1_000_000_000),
                 "size_8bit_TB": float(bytes_8bit / 1_000_000_000_000),
                 "size_8bit_TiB": float(bytes_8bit / (1024**4)),
-
-                # sizes: dtype-based uncompressed estimate
                 "bytes_est": int(bytes_est),
                 "size_est_GB": float(bytes_est / 1_000_000_000),
-
-                # sizes: exact on-disk (may be None if stat failed)
                 "bytes_exact": None if bytes_exact is None else int(bytes_exact),
                 "size_exact_GB": None if bytes_exact is None else float(bytes_exact / 1_000_000_000),
             }
-            # merge XML fields (prefixed with xml_)
             if xml_meta:
                 row.update(xml_meta)
 
             rows.append(row)
+            accepted += 1
+
+            # If we just hit the cap, we can prune further descent for this subtree
+            if not unlimited and accepted >= max_scans_per_root:
+                dirnames[:] = []
 
         except Exception as e:
             logs.append({"level": "warn", "scan_dir": str(folder), "msg": str(e)})
@@ -334,15 +351,42 @@ def main():
     ap.add_argument("--min-slices", type=int, default=16, help="Minimum TIFF slices to accept a folder as a scan.")
     ap.add_argument("--sample-slices", type=int, default=16, help="Slices to sample for stats/validation per scan.")
     ap.add_argument("--workers", type=int, default=8, help="Parallel workers for indexing.")
+    ap.add_argument("--max-per-root", type=int, default=4,
+                    help="Maximum number of scans to index per project root (default: 4).")
+    ap.add_argument("--unlimited-root", action="append", default=[],
+                    help="Root path exempt from --max-per-root. May be repeated.")
     args = ap.parse_args()
 
     df = pd.read_excel(args.excel)
     col = pick_path_column(df, args.col)
     projects = [Path(p) for p in df[col].dropna().astype(str).tolist()]
+    
+    # Normalize allow-list for robust path comparisons
+    def _norm(p: Path) -> str:
+        try:
+            return str(Path(p).resolve()).lower()
+        except Exception:
+            return str(p).lower()
+
+    unlimited_set = {_norm(Path(p)) for p in (args.unlimited_root or [])}
+
 
     all_rows, all_logs = [], []
+    
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(scan_project, p, args.min_slices, args.sample_slices): p for p in projects}
+        futs = {}
+        for p in projects:
+            unlimited = _norm(p) in unlimited_set
+            fut = ex.submit(
+                scan_project,
+                p,
+                args.min_slices,
+                args.sample_slices,
+                args.max_per_root,
+                unlimited
+            )
+            futs[fut] = p
+
         for fut in tqdm(as_completed(futs), total=len(futs), desc="Indexing projects"):
             rows, logs = fut.result()
             all_rows.extend(rows)
