@@ -11,6 +11,7 @@ src/deblur3d/data/dataset_legacy.py
 src/deblur3d/data/io.py
 src/deblur3d/data/split_train_val_hash.py
 src/deblur3d/infer/__init__.py
+src/deblur3d/infer/baselines3d.py
 src/deblur3d/infer/tiled.py
 src/deblur3d/losses/__init__.py
 src/deblur3d/losses/losses.py
