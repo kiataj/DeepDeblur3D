@@ -1,22 +1,47 @@
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "deblur3d"
 version = "0.1.0"
-description = "Micro-CT Sharpening and denoising CNN"
+description = "Micro-CT sharpening/denoising CNN with optional Napari GUI"
 readme = "README.md"
 requires-python = ">=3.10"
+authors = [{ name = "Kiarash Tajbakhsh" }]
+license = { text = "Proprietary" }  # change if needed
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Image Processing"
+]
+
+# Core runtime deps (no GUI)
 dependencies = [
-  "numpy<2",            # Torch 1.12 compatibility
+  "numpy<2",
   "tifffile>=2023.2.3",
   "torch>=1.12,<2.0",
   "torchvision>=0.13,<0.14",
   "tqdm",
-  "matplotlib",
-  "napari[all]"
 ]
+
+[project.optional-dependencies]
+# Install with: pip install -e ".[gui]"
+gui = [
+  "napari[all]>=0.5",
+  "magicgui>=0.8",
+  "matplotlib>=3.6",
+]
+dev = ["pytest", "ruff", "mypy"]
+
+[project.scripts]
+# CLI entry point
+deblur3d-gui = "deblur3d.app.gui:main"
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["deblur3d*"]

@@ -1,0 +1,2 @@
+[console_scripts]
+deblur3d-gui = deblur3d.app.gui:main

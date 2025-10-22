@@ -3,8 +3,12 @@ src/deblur3d/__init__.py
 src/deblur3d.egg-info/PKG-INFO
 src/deblur3d.egg-info/SOURCES.txt
 src/deblur3d.egg-info/dependency_links.txt
+src/deblur3d.egg-info/entry_points.txt
 src/deblur3d.egg-info/requires.txt
 src/deblur3d.egg-info/top_level.txt
+src/deblur3d/app/__init__.py
+src/deblur3d/app/_workers.py
+src/deblur3d/app/gui.py
 src/deblur3d/data/__init__.py
 src/deblur3d/data/dataset.py
 src/deblur3d/data/dataset_legacy.py
@@ -15,6 +19,7 @@ src/deblur3d/infer/baselines3d.py
 src/deblur3d/infer/tiled.py
 src/deblur3d/losses/__init__.py
 src/deblur3d/losses/losses.py
+src/deblur3d/metrics/no_ref3d.py
 src/deblur3d/models/__init__.py
 src/deblur3d/models/controls.py
 src/deblur3d/models/unet3d.py
